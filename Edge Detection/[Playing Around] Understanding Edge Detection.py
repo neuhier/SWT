@@ -93,3 +93,14 @@ for i,j,k in [(i,j,k) for i in  cliplimits for j in canny1 for k in canny2]:
 
 
 show_img_list(param_optim, 3, titles) # cliplimit: 1.5 c1: 100 c2: 250 winner
+
+
+#----------------------------------------------------------+
+# Create winner edge img and save it for the next steps
+#----------------------------------------------------------+
+
+clahe = cv2.createCLAHE(clipLimit=1.5) # Contrast adjustment
+mtg_final = clahe.apply(mtg_cropped) # Generate contrast adjusted img
+edg_mtg_final = cv2.Canny(mtg_final, 100, 250) # Run canny on it
+cv2.imwrite(os.path.join(cwd, "Edge Imgs/mtg_cropped.jpg"), edg_mtg_final)
+
