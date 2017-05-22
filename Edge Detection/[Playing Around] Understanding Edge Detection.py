@@ -4,71 +4,92 @@
 #
 
 # Libs
+import os
+import numpy as np
 import cv2 # OpenCV
-from skimage import feature # Alternative lib to OpenCV
 import matplotlib.pyplot as plt # matplotlib for img display
 
+# Helper functions
+
+# Plot multiple images in one window
+def show_img_list(lst, ncol=2, titles=[]):
+    n = len(lst)
+    nrow = np.ceil(n/ncol)
+    counter = 1
+    fig = plt.figure()
+    plt.set_cmap('gray')
+    for i in lst:
+        a = fig.add_subplot(nrow, ncol, counter)
+        a.axis('off')
+        a.set_xticklabels([])
+        a.set_yticklabels([])
+        plt.imshow(i)
+        if len(titles)>0:
+            a.set_title(titles[counter-1])
+        counter+=1
+    fig.subplots_adjust(wspace=.1, hspace=.1)
+
+#----------------------------------------------------------+
 # 1. Step: Canny Edge Detection
+#----------------------------------------------------------+
+
+# Load different test images
+cwd = os.getcwd() # Current working directory
+
+messi       = cv2.imread(os.path.join(cwd, "Sample Imgs/messi.jpg"), 0) # Can I reproduce the edges shown in multiple tutorials?
+mtg_blurry  = cv2.imread(os.path.join(cwd, "Sample Imgs/IMG_2834.jpg"),0) # A bit of a blurry pic of mtg cards
+mtg_cropped = cv2.imread(os.path.join(cwd, "Sample Imgs/IMG_2855_2.jpg"),0) # Better shot of mtg cards, cropped to card titels
 
 
+#----------------------------------------------------------+
+# Trying different edge detection algorithms on the pics
+# First: Canny
+#----------------------------------------------------------+
+
+edg_messi = cv2.Canny(messi, 100, 200)
+edg_mtg_blurr = cv2.Canny(mtg_blurry, 25, 200)
+edg_mtg_cropped = cv2.Canny(mtg_cropped, 25, 200)
+
+canny_edg = [messi, edg_messi, mtg_blurry, edg_mtg_blurr, mtg_cropped, edg_mtg_cropped]
+
+show_img_list(canny_edg)
 
 
-# Playing around
+#----------------------------------------------------------+
+# Trying different edge detection algorithms on the pics
+# First: Canny + some img preprocessing
+#----------------------------------------------------------+
 
-#-------------------------+
-# Image Preparation
-#-------------------------+
+# Contrast Limited Adaptive Histogram Equalization
+clahe = cv2.createCLAHE(clipLimit=2.0)
+mtg_blurry_contr = clahe.apply(mtg_blurry)
+mtg_cropped_contr = clahe.apply(mtg_cropped)
 
-# Load test image
-img = cv2.imread("/Users/basti/Documents/Projekte/PySWT/test imgs/IMG_2834_2.jpg",0)
+edg_mtg_blurr_contr = cv2.Canny(mtg_blurry_contr, 90, 225)
+edg_mtg_cropped_contr = cv2.Canny(mtg_cropped_contr,90, 225)
 
-# Resize to 15%
-img = cv2.resize(img, dsize=(0,0), fx=0.15, fy=0.15)
-
-# Display image
-plt.imshow(img, cmap="gray")
-
-#-------------------------+
-# Edge Detection
-#-------------------------+
-
-# Canny edge detection
-edges_cv = cv2.Canny(img, 2, 5) # cv2
-plt.imshow(edges_cv, cmap="gray")
-
-edges_ski = feature.canny(img,0.1) # skimage
-plt.imshow(edges_ski, cmap="gray")
-
-# Laplacian edge detection !WINNER for resized image!
-edges_laplace = cv2.Laplacian(img,cv2.CV_64F)
-plt.imshow(edges_laplace, cmap="gray")
-
-# Scharr edge detection
-edges_scharrx = cv2.Scharr(img, ddepth=2, dx=1, dy=0)
-edges_scharry = cv2.Scharr(img, ddepth=2, dx=0, dy=1)
-plt.imshow(edges_scharrx, cmap="gray")
-plt.imshow(edges_scharry, cmap="gray")
-plt.imshow(edges_scharry+edges_scharrx, cmap="gray")
-
-# Sobel edge detection
-sobelx = cv2.Sobel(img,cv2.CV_64F,1,0,ksize=5)  # x
-sobely = cv2.Sobel(img,cv2.CV_64F,0,1,ksize=5)  # y
-
-plt.imshow(sobelx, cmap="gray")
-plt.imshow(sobely, cmap="gray")
-plt.imshow(sobelx+sobely, cmap="gray")
-
-#-------------------------+
-# Make edge image binary
-#-------------------------+
-plt.imshow(edges_laplace, cmap="gray")
-
-# Summary of edges
-edg.max()
-edg.min()
-plt.hist(edg.flatten())
-
-# Make binary
-edg[edg<150] = 0
+canny_contr_edg = [mtg_blurry_contr, edg_mtg_blurr_contr, mtg_cropped_contr, edg_mtg_cropped_contr]
+show_img_list(canny_contr_edg)
 
 
+#----------------------------------------------------------+
+# Systematic approach to figure out right params for
+# clahe and canny for mtg_cropped
+#----------------------------------------------------------+
+
+cliplimits = [1.5, 2]
+canny1 = [75, 100, 150]
+canny2 = [250]
+titles = []
+
+param_optim = []
+
+for i,j,k in [(i,j,k) for i in  cliplimits for j in canny1 for k in canny2]:
+    titles.append("ClipsLimits: " + str(i) + " c1: " + str(j) + " c2: " + str(k))
+    clahe = cv2.createCLAHE(clipLimit=i)
+    thisimg = clahe.apply(mtg_cropped)
+    thisedg = cv2.Canny(thisimg, j,k)
+    param_optim.append(thisedg)
+
+
+show_img_list(param_optim, 3, titles) # cliplimit: 1.5 c1: 100 c2: 250 winner
